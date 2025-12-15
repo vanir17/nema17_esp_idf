@@ -4,17 +4,18 @@
 #include "driver/gpio.h"
 #include "driver/rmt_tx.h"
 
-
+// ESP32_DEVKIT_V1 + TB6600 Stepper driver motor: 6400 PULSES/REV, 1.5A RATED, 1.7A PEAK
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 #define STEP_PIN 23
 #define DIR_PIN 22
 #define RMT_RESOLUTION_HZ (1000000u)  
-#define DURATION0 (75u)
+#define DURATION1 (500u)
+#define DURATION0 (50u)
 #define DIR_CW 1
 #define DIR_CCW !DIR_CW
-#define DURATION1 (100u)
+
 /*******************************************************************************
  * Main
  ******************************************************************************/
@@ -89,13 +90,13 @@ void app_main(void)
         ESP_ERROR_CHECK(rmt_transmit(tx_channel, copy_encoder, payload_cw, size, &tx_config));
         ESP_ERROR_CHECK(rmt_tx_wait_all_done(tx_channel, -1));
         printf("Xong CW\n");
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(200));
 
         gpio_set_level(DIR_PIN, DIR_CCW);
         ESP_ERROR_CHECK(rmt_transmit(tx_channel, copy_encoder, payload_ccw, size, &tx_config));
         ESP_ERROR_CHECK(rmt_tx_wait_all_done(tx_channel, -1));
         printf("Xong CCW\n");
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 
     //--- Giải phóng bộ nhớ ---
