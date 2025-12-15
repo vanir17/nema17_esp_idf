@@ -29,6 +29,10 @@ typedef struct
     uint32_t resolution; // Encoder resolution, in Hz
 }stepper_motor_uniform_encoder_config_t;
 
+/**
+ * @brief Type of RMT encoder handle
+ */
+typedef struct rmt_encoder_t *rmt_encoder_handle_t;
 
 /**
  * @brief Create stepper motor curve encoder
@@ -52,8 +56,10 @@ esp_err_t rmt_new_stepper_motor_curve_encoder(const stepper_motor_curve_encoder_
  *      - ESP_ERR_NO_MEM out of memory when creating step motor encoder
  *      - ESP_OK if creating encoder successfully
  */
-esp_error_t rmt_new_stepper_motor_uniform_encoder(const stepper_motor_uniform_encoder_config_t *config, rmt_channel_handle_t *ret_encoder);
+esp_err_t rmt_new_stepper_motor_uniform_encoder(const stepper_motor_uniform_encoder_config_t *config, rmt_encoder_handle_t *ret_encoder);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

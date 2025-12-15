@@ -12,8 +12,9 @@
 #define DIR_PIN 22
 #define RMT_RESOLUTION_HZ (1000000u)  
 #define DURATION0 (75u)
-// #define 
-// #define DURATION1 5000
+#define DIR_CW 1
+#define DIR_CCW !DIR_CW
+#define DURATION1 (100u)
 /*******************************************************************************
  * Main
  ******************************************************************************/
@@ -28,7 +29,7 @@ void app_main(void)
         .intr_type = GPIO_INTR_DISABLE, // // tắt interupt (không cần)
     };
     gpio_config(&dir_conf);
-    gpio_set_level(DIR_PIN, 1);
+    
 
     // Cấu hình RMT Channel
     rmt_channel_handle_t tx_channel = NULL;
@@ -39,51 +40,65 @@ void app_main(void)
         .resolution_hz = RMT_RESOLUTION_HZ, // 1MHz, nghĩa là 1tick = 1us
         .trans_queue_depth = 4, // Hàng đợi lệnh
     };
-    // Tạo channel mới
     ESP_ERROR_CHECK(rmt_new_tx_channel(&tx_chan_config, &tx_channel));
-
-    //Bật channel lên (Enable)
     ESP_ERROR_CHECK(rmt_enable(tx_channel));
 
+/*******************************************************************************
+ * 
+ ******************************************************************************/
 
-    // Tạo dữ liệu xung
+    // ------- Cấu hình encoder ------
+    rmt_encoder_handle_t copy_encoder = NULL;
+    rmt_copy_encoder_config_t copy_encoder_config = {};
+    ESP_ERROR_CHECK(rmt_new_copy_encoder(&copy_encoder_config, &copy_encoder));
+    rmt_transmit_config_t tx_config = {
+        .loop_count = 0,
+    };
+
+    // ------- Tạo dữ liệu xung ------
     uint32_t steps = 6400;
     size_t size = steps * sizeof(rmt_symbol_word_t);
-    rmt_symbol_word_t *payload = (rmt_symbol_word_t *)malloc(size);
-
-    if(payload)
+    rmt_symbol_word_t *payload_cw = (rmt_symbol_word_t *)malloc(size);
+    rmt_symbol_word_t *payload_ccw = (rmt_symbol_word_t *)malloc(size);
+    if(payload_cw == NULL || payload_ccw == NULL)
     {
-        /* Cấu hình thông số cho 01 bước, ví dụ muốn 1000 xung / giây => 1 xung = 1ms
-            => High = 500us, Low = 500us
-            -> duration = 500 tick vì 1 tick = 1 us
-        */
-       for(int i = 0; i < steps; i++)
-       {
-            // High level
-            payload[i].level0 = 1;
-            payload[i].duration0 = DURATION0;
-
-            // Low level
-            payload[i].level1 = 0;
-            payload[i].duration1 = DURATION0;
-       }
-       printf("Bat dau quay dong co...\n");
-
-       rmt_encoder_handle_t copy_encoder = NULL;
-       rmt_copy_encoder_config_t copy_encoder_config = {};
-       ESP_ERROR_CHECK(rmt_new_copy_encoder(&copy_encoder_config, &copy_encoder));
-       // Tiếp theo sẽ gửi lệnh (vòng for) để phát xung, sẽ copy dữ liệu vào RMT hardware cho tự chạy
-       rmt_transmit_config_t tx_config = {
-            .loop_count = 0, // 0 lần lặp lại mảng
-       };
-
-       
-            ESP_ERROR_CHECK(rmt_transmit(tx_channel, copy_encoder, payload, size, &tx_config));
-            printf("đã gửi 200 xung \n");
-            vTaskDelay(pdMS_TO_TICKS(15000));        
-       
-
-       free(payload);
+        printf("Tràn Ram!\n");
+        return;
     }
 
+    for(int i = 0; i < steps; i++)
+    {
+        // High level
+        payload_cw[i].level0 = 1;
+        payload_cw[i].duration0 = DURATION0;
+        // Low level
+        payload_cw[i].level1 = 0;
+        payload_cw[i].duration1 = DURATION0;
+    }
+    for(int i = 0; i < steps; i++)
+    {
+        payload_ccw[i].level0 = 1;
+        payload_ccw[i].duration0 = DURATION1; 
+        payload_ccw[i].level1 = 0;
+        payload_ccw[i].duration1 = DURATION1; 
+    }
+    while(1)
+    {
+        // CW
+        gpio_set_level(DIR_PIN, DIR_CW);
+        ESP_ERROR_CHECK(rmt_transmit(tx_channel, copy_encoder, payload_cw, size, &tx_config));
+        ESP_ERROR_CHECK(rmt_tx_wait_all_done(tx_channel, -1));
+        printf("Xong CW\n");
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        gpio_set_level(DIR_PIN, DIR_CCW);
+        ESP_ERROR_CHECK(rmt_transmit(tx_channel, copy_encoder, payload_ccw, size, &tx_config));
+        ESP_ERROR_CHECK(rmt_tx_wait_all_done(tx_channel, -1));
+        printf("Xong CCW\n");
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+
+    //--- Giải phóng bộ nhớ ---
+    free(payload_cw);
+    free(payload_ccw);
 }
